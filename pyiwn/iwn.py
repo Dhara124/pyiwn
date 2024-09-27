@@ -179,7 +179,41 @@ class IndoWordNet:
 
     def synset_relation(self, synset, relation):
         return list(self._synset_df[self._synset_df.index.isin(self._synset_relations_dict[relation.value].get(synset.synset_id(), []))]['synsets'])
-
+      
+    def synset_mapping(self, synset_id, lang):
+        filename = os.path.join(constants.IWN_DATA_PATH, 'synsets', f'all.{lang.value}')
+        if not os.path.exists(filename):
+            logger.error(f"Synset file for language {lang.value} not found.")
+            return None
+        with open(filename, 'r', encoding='utf-8') as f:
+            for line in f:
+                # Reuse the synset parsing logic
+                line = line.strip()
+                if not line:
+                    continue
+                # Extract synset details from the line using the same pattern
+                synset_pattern = '([0-9]+)\t(.+)\t(.+)\t([a-zA-Z]+)'
+                matches = re.findall(synset_pattern, line)
+                
+                if matches:
+                    file_synset_id, synset_words, gloss_examples, pos = matches[0]
+                    # Check if the synset ID matches
+                    if int(file_synset_id) == synset_id:
+                    # Split the gloss and example part by ':'
+                        if ':"' in gloss_examples:
+                            gloss, examples = gloss_examples.split(':"', 1)
+                            examples = examples.strip('"').split('  /  ')  # Split examples by "  /  " if there are multiple
+                        else:
+                            gloss = gloss_examples
+                            examples = []
+                        # Split the words by commas
+                        words = synset_words.split(',')
+                        # The first word is the head word
+                        head_word = words[0]
+                        # Return the Synset object with head_word and lemma_names
+                        return Synset(int(file_synset_id), head_word, words, pos, gloss, examples)
+        logger.info(f'No matching synset found for {synset_id} in {lang.value}.')
+        return None
 
 class Synset:
     def __init__(self, synset_id, head_word, lemma_names, pos, gloss, examples):
